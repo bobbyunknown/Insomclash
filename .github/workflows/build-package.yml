@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - dev
+      - main
 
 env:
   MIHOMO_VERSION: v1.19.17
@@ -79,7 +79,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
 
       - name: Download Mihomo Binary
         run: |
@@ -128,7 +128,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
 
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y make wget curl unzip tar binutils

@@ -1,5 +1,18 @@
 # Insomclash
 
+[🇺🇸 English](README-EN.md)
+
+[![GitHub Downloads](https://img.shields.io/github/downloads/bobbyunknown/insomclash/total?style=for-the-badge)](https://github.com/bobbyunknown/insomclash)
+[![GitHub Release](https://img.shields.io/github/v/release/bobbyunknown/insomclash?style=for-the-badge)](https://github.com/bobbyunknown/insomclash/releases)
+
+#### Support me:
+[![Sociabuzz](https://img.shields.io/badge/Sociabuzz-1DA1F2?style=for-the-badge&logo=sociabuzz&logoColor=white)](https://sociabuzz.com/bobbyunknown/tribe)
+[![Saweria](https://img.shields.io/badge/Saweria-FFA500?style=for-the-badge&logo=saweria&logoColor=white)](https://saweria.co/widgets/qr?streamKey=48ea6792454c7732924b663381c69521)
+
+
+#### Telegram group:
+[![SanTech](https://img.shields.io/badge/SanTech-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/+TuLCASzJrVJmNzM1)
+
 **Insomclash** adalah controller dan manager yang ringan namun powerful untuk core **Mihomo** (Clash Meta), dirancang khusus untuk sistem **OpenWrt** dan **Linux Server** (seperti Debian/Ubuntu/Arch Linux). Aplikasi ini memudahkan Anda dalam mengelola koneksi proxy dengan kemampuan routing tingkat lanjut serta antarmuka web modern.
 
 Repository ini berfungsi sebagai **pusat build dan packaging resmi** untuk Insomclash, mendukung OpenWrt (IPK/APK) dan Debian/Ubuntu (DEB).
