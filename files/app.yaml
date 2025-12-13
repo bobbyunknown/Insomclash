@@ -12,6 +12,7 @@ mihomo:
   routing:
     tcp: tun
     udp: tun
+    tun_device: ""
 logging:
   level: info
   file: /var/log/insomclash.log
