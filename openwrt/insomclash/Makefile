@@ -7,7 +7,46 @@ PKG_RELEASE:=1
 PKG_MAINTAINER:=BobbyUnknown
 PKG_LICENSE:=MIT
 
+# Mihomo version for download
+MIHOMO_VERSION:=v1.19.17
+
 include $(INCLUDE_DIR)/package.mk
+
+# Architecture mapping for insomclash binary
+ifeq ($(ARCH),x86_64)
+  INSOMCLASH_ARCH:=amd64
+  MIHOMO_ARCH:=amd64-v1
+else ifeq ($(ARCH),i386)
+  INSOMCLASH_ARCH:=386
+  MIHOMO_ARCH:=386
+else ifeq ($(ARCH),aarch64)
+  INSOMCLASH_ARCH:=arm64
+  MIHOMO_ARCH:=arm64
+else ifeq ($(ARCH),arm)
+  INSOMCLASH_ARCH:=armv7
+  MIHOMO_ARCH:=armv7
+else ifeq ($(ARCH),mips)
+  INSOMCLASH_ARCH:=mips
+  MIHOMO_ARCH:=mips-softfloat
+else ifeq ($(ARCH),mipsel)
+  INSOMCLASH_ARCH:=mipsle
+  MIHOMO_ARCH:=mipsle-softfloat
+else ifeq ($(ARCH),mips64)
+  INSOMCLASH_ARCH:=mips64
+  MIHOMO_ARCH:=mips64
+else ifeq ($(ARCH),mips64el)
+  INSOMCLASH_ARCH:=mips64le
+  MIHOMO_ARCH:=mips64le
+else ifeq ($(ARCH),riscv64)
+  INSOMCLASH_ARCH:=riscv64
+  MIHOMO_ARCH:=riscv64
+else
+  INSOMCLASH_ARCH:=amd64
+  MIHOMO_ARCH:=amd64-v1
+endif
+
+# Source directories (relative to package root, not openwrt/insomclash)
+PKG_SOURCE_DIR:=$(CURDIR)/../..
 
 define Package/insomclash
   SECTION:=net
@@ -23,12 +62,19 @@ endef
 
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) $(CURDIR)/core/insomclash $(PKG_BUILD_DIR)/
-	$(CP) $(CURDIR)/core/mihomo $(PKG_BUILD_DIR)/
-	$(CP) -r $(CURDIR)/files/* $(PKG_BUILD_DIR)/
+	
+	@echo "Copying insomclash binary for $(ARCH) ($(INSOMCLASH_ARCH))..."
+	$(CP) $(PKG_SOURCE_DIR)/core/insomclash-linux-$(INSOMCLASH_ARCH) $(PKG_BUILD_DIR)/insomclash
 	chmod +x $(PKG_BUILD_DIR)/insomclash
+	
+	@echo "Downloading Mihomo $(MIHOMO_VERSION) for $(MIHOMO_ARCH)..."
+	wget -q -O $(PKG_BUILD_DIR)/mihomo.gz "https://github.com/MetaCubeX/mihomo/releases/download/$(MIHOMO_VERSION)/mihomo-linux-$(MIHOMO_ARCH)-$(MIHOMO_VERSION).gz"
+	gunzip -f $(PKG_BUILD_DIR)/mihomo.gz
 	chmod +x $(PKG_BUILD_DIR)/mihomo
+	
+	$(CP) -r $(PKG_SOURCE_DIR)/files/* $(PKG_BUILD_DIR)/
 
+	@echo "Downloading GeoIP assets..."
 	wget -q -O $(PKG_BUILD_DIR)/country.mmdb https://github.com/rtaserver/meta-rules-dat/releases/latest/download/country.mmdb
 	wget -q -O $(PKG_BUILD_DIR)/geoip.dat https://github.com/rtaserver/meta-rules-dat/releases/latest/download/geoip.dat
 	wget -q -O $(PKG_BUILD_DIR)/geosite.dat https://github.com/rtaserver/meta-rules-dat/releases/latest/download/geosite.dat
