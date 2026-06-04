@@ -1,4 +1,6 @@
-package service
+//go:build linux && !android
+
+package nftables
 
 import (
 	"fmt"
@@ -10,20 +12,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type RedirectService struct {
+type redirect struct {
 	conn         *nftables.Conn
 	redirectPort uint16
 	mihomoMark   uint32
 }
 
-func NewRedirectService() *RedirectService {
-	return &RedirectService{
+func newRedirect() *redirect {
+	return &redirect{
 		redirectPort: 7891,
 		mihomoMark:   0x100,
 	}
 }
 
-func (rs *RedirectService) Setup(conn *nftables.Conn) error {
+func (rs *redirect) Setup(conn *nftables.Conn) error {
 	rs.conn = conn
 
 	if err := rs.createRules(); err != nil {
@@ -34,7 +36,7 @@ func (rs *RedirectService) Setup(conn *nftables.Conn) error {
 	return nil
 }
 
-func (rs *RedirectService) Cleanup(conn *nftables.Conn) error {
+func (rs *redirect) Cleanup(conn *nftables.Conn) error {
 	if conn != nil {
 		rs.deleteRules(conn)
 	}
@@ -42,7 +44,7 @@ func (rs *RedirectService) Cleanup(conn *nftables.Conn) error {
 	return nil
 }
 
-func (rs *RedirectService) createRules() error {
+func (rs *redirect) createRules() error {
 	logger.Debug("REDIRECT: Creating table")
 	table := rs.conn.AddTable(&nftables.Table{
 		Family: nftables.TableFamilyINet,
@@ -63,7 +65,7 @@ func (rs *RedirectService) createRules() error {
 	return nil
 }
 
-func (rs *RedirectService) addOutputRules(table *nftables.Table, chain *nftables.Chain) {
+func (rs *redirect) addOutputRules(table *nftables.Table, chain *nftables.Chain) {
 	mihomoMarkData := []byte{0x00, 0x01, 0x00, 0x00}
 
 	rs.conn.AddRule(&nftables.Rule{
@@ -139,7 +141,7 @@ func (rs *RedirectService) addOutputRules(table *nftables.Table, chain *nftables
 	})
 }
 
-func (rs *RedirectService) deleteRules(conn *nftables.Conn) {
+func (rs *redirect) deleteRules(conn *nftables.Conn) {
 	table := &nftables.Table{
 		Family: nftables.TableFamilyINet,
 		Name:   "fusiontunx_redirect",

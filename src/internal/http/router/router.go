@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(app *gin.Engine, mihomoService *service.MihomoService, nftablesService *service.NftablesService, cfg *config.Config, configPath string) {
+func Setup(app *gin.Engine, mihomoService *service.MihomoService, cfg *config.Config, configPath string) {
 	app.Use(gin.Logger())
 	app.Use(gin.Recovery())
 	app.Use(middleware.CORS(&cfg.API.CORS))

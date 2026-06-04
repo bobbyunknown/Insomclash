@@ -1,0 +1,46 @@
+---
+server:
+  port: "8080"
+  host: 0.0.0.0
+  mode: release
+
+mihomo:
+  core_path: /data/adb/fusiontunx/core/mihomo
+  config_path: /data/adb/fusiontunx/configs/config.yaml
+  working_dir: /data/adb/fusiontunx
+  auto_restart: false
+  auto_start: false
+  log_file: /data/adb/fusiontunx/run/mihomo.log
+  routing:
+    tcp: tproxy
+    udp: tproxy
+    tun_device: Meta
+
+logging:
+  level: info
+  file: /data/adb/fusiontunx/run/fusiontunx.log
+  max_size: 10
+  max_backups: 3
+  max_age: 7
+
+api:
+  rate_limit: 100
+  timeout: 30
+  enable_swagger: false
+  cors:
+    enabled: true
+    allowed_origins:
+      - "*"
+    allowed_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed_headers:
+      - Content-Type
+      - Authorization
+    expose_headers:
+      - Content-Length
+    allow_credentials: true
+    max_age: 3600

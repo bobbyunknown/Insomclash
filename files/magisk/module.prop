@@ -1,0 +1,6 @@
+id=fusiontunx
+name=FusionTunX
+version=v0.1.0
+versionCode=100
+author=bobbyunknown
+description=Transparent proxy on Magisk using mihomo + iptables TPROXY

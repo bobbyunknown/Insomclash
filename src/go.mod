@@ -3,6 +3,7 @@ module fusiontunx
 go 1.23.12
 
 require (
+	github.com/coreos/go-iptables v0.8.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/sagernet/nftables v0.3.0-beta.4

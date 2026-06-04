@@ -1,4 +1,6 @@
-package service
+//go:build linux && !android
+
+package nftables
 
 import (
 	"fmt"
@@ -15,7 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type TUNService struct {
+type tun struct {
 	conn         *nftables.Conn
 	tunDevice    string
 	tunTableID   int
@@ -23,15 +25,15 @@ type TUNService struct {
 	useOpenWrtFw bool
 }
 
-func NewTUNService() *TUNService {
-	return &TUNService{
+func newTun() *tun {
+	return &tun{
 		tunDevice:  "Meta",
 		tunTableID: 200,
 		tunMark:    200,
 	}
 }
 
-func (t *TUNService) Setup(conn *nftables.Conn, routingConfig config.RoutingConfig) error {
+func (t *tun) Setup(conn *nftables.Conn, routingConfig config.RoutingConfig) error {
 	t.conn = conn
 
 	if routingConfig.TunDevice != "" {
@@ -62,7 +64,7 @@ func (t *TUNService) Setup(conn *nftables.Conn, routingConfig config.RoutingConf
 	return nil
 }
 
-func (t *TUNService) Cleanup(conn *nftables.Conn) error {
+func (t *tun) Cleanup(conn *nftables.Conn) error {
 	t.conn = conn
 
 	logger.Debug("TUN: Cleaning up routing rules")
@@ -93,7 +95,7 @@ func (t *TUNService) Cleanup(conn *nftables.Conn) error {
 	return nil
 }
 
-func (t *TUNService) detectOpenWrtFw4() bool {
+func (t *tun) detectOpenWrtFw4() bool {
 	nft, err := nftables.New()
 	if err != nil {
 		return false
@@ -112,7 +114,7 @@ func (t *TUNService) detectOpenWrtFw4() bool {
 	return false
 }
 
-func (t *TUNService) createRoutingTable() error {
+func (t *tun) createRoutingTable() error {
 	maxRetries := 20
 	var link netlink.Link
 	var err error
@@ -156,14 +158,14 @@ func (t *TUNService) createRoutingTable() error {
 	return nil
 }
 
-func (t *TUNService) createRules(routingConfig config.RoutingConfig) error {
+func (t *tun) createRules(routingConfig config.RoutingConfig) error {
 	if t.useOpenWrtFw {
 		return t.createOpenWrtFw4Rules(routingConfig)
 	}
 	return t.createStandaloneRules(routingConfig)
 }
 
-func (t *TUNService) createOpenWrtFw4Rules(routingConfig config.RoutingConfig) error {
+func (t *tun) createOpenWrtFw4Rules(routingConfig config.RoutingConfig) error {
 	fw4Table := &nftables.Table{
 		Family: nftables.TableFamilyINet,
 		Name:   "fw4",
@@ -358,7 +360,7 @@ func (t *TUNService) createOpenWrtFw4Rules(routingConfig config.RoutingConfig) e
 	return t.createMarkingRules(routingConfig)
 }
 
-func (t *TUNService) createMarkingRules(routingConfig config.RoutingConfig) error {
+func (t *tun) createMarkingRules(routingConfig config.RoutingConfig) error {
 	mangle := t.conn.AddTable(&nftables.Table{
 		Family: nftables.TableFamilyIPv4,
 		Name:   "fusiontunx_tun",
@@ -568,11 +570,11 @@ func (t *TUNService) createMarkingRules(routingConfig config.RoutingConfig) erro
 	return nil
 }
 
-func (t *TUNService) createStandaloneRules(routingConfig config.RoutingConfig) error {
+func (t *tun) createStandaloneRules(routingConfig config.RoutingConfig) error {
 	return t.createMarkingRules(routingConfig)
 }
 
-func (t *TUNService) deleteRules() error {
+func (t *tun) deleteRules() error {
 	nft, err := nftables.New()
 	if err != nil {
 		return nil
@@ -607,7 +609,7 @@ func (t *TUNService) deleteRules() error {
 	return nil
 }
 
-func (t *TUNService) IsActive() bool {
+func (t *tun) IsActive() bool {
 	_, err := netlink.RouteList(nil, t.tunTableID)
 	return err == nil
 }

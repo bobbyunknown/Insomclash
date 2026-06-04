@@ -1,4 +1,6 @@
-package service
+//go:build linux && !android
+
+package nftables
 
 import (
 	"bytes"
@@ -14,7 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type TProxyService struct {
+type tproxy struct {
 	conn         *nftables.Conn
 	tproxyMark   uint32
 	mihomoMark   uint32
@@ -26,8 +28,8 @@ type TProxyService struct {
 	udpMode      string
 }
 
-func NewTProxyService() *TProxyService {
-	return &TProxyService{
+func newTproxy() *tproxy {
+	return &tproxy{
 		tproxyMark:   0x80,
 		mihomoMark:   0x100,
 		tproxyPort:   7894,
@@ -37,7 +39,7 @@ func NewTProxyService() *TProxyService {
 	}
 }
 
-func (tp *TProxyService) Setup(conn *nftables.Conn, tcpMode, udpMode string) error {
+func (tp *tproxy) Setup(conn *nftables.Conn, tcpMode, udpMode string) error {
 	tp.conn = conn
 	tp.tcpMode = tcpMode
 	tp.udpMode = udpMode
@@ -50,14 +52,14 @@ func (tp *TProxyService) Setup(conn *nftables.Conn, tcpMode, udpMode string) err
 	return nil
 }
 
-func (tp *TProxyService) Cleanup(conn *nftables.Conn) error {
+func (tp *tproxy) Cleanup(conn *nftables.Conn) error {
 	tp.deleteRules()
 	tp.delPolicyRouting()
 	logger.Info("TPROXY cleanup successful")
 	return nil
 }
 
-func (tp *TProxyService) addPolicyRouting() error {
+func (tp *tproxy) addPolicyRouting() error {
 	lo, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("failed to get lo interface: %w", err)
@@ -113,7 +115,7 @@ func (tp *TProxyService) addPolicyRouting() error {
 	return nil
 }
 
-func (tp *TProxyService) delPolicyRouting() error {
+func (tp *tproxy) delPolicyRouting() error {
 	rule4 := netlink.NewRule()
 	rule4.Family = unix.AF_INET
 	rule4.Table = tp.routeTable
@@ -145,7 +147,7 @@ func (tp *TProxyService) delPolicyRouting() error {
 	return nil
 }
 
-func (tp *TProxyService) createRules() error {
+func (tp *tproxy) createRules() error {
 	logger.Debug("TPROXY: Creating table")
 	table := tp.conn.AddTable(&nftables.Table{
 		Family: nftables.TableFamilyINet,
@@ -207,7 +209,7 @@ func (tp *TProxyService) createRules() error {
 	return nil
 }
 
-func (tp *TProxyService) addPreroutingRules(table *nftables.Table, chain *nftables.Chain, reservedIPSet, reservedIP6Set *nftables.Set) {
+func (tp *tproxy) addPreroutingRules(table *nftables.Table, chain *nftables.Chain, reservedIPSet, reservedIP6Set *nftables.Set) {
 	port443 := []byte{0x01, 0xBB}
 	mihomoMarkData := []byte{0x00, 0x01, 0x00, 0x00}
 	tproxyMarkData := []byte{byte(tp.tproxyMark), 0x00, 0x00, 0x00}
@@ -357,7 +359,7 @@ func (tp *TProxyService) addPreroutingRules(table *nftables.Table, chain *nftabl
 	}
 }
 
-func (tp *TProxyService) addOutputRules(table *nftables.Table, chain *nftables.Chain, reservedIPSet, reservedIP6Set *nftables.Set) {
+func (tp *tproxy) addOutputRules(table *nftables.Table, chain *nftables.Chain, reservedIPSet, reservedIP6Set *nftables.Set) {
 	port443 := []byte{0x01, 0xBB}
 	mihomoMarkData := []byte{0x00, 0x01, 0x00, 0x00}
 	tproxyMarkData := []byte{byte(tp.tproxyMark), 0x00, 0x00, 0x00}
@@ -461,7 +463,7 @@ func (tp *TProxyService) addOutputRules(table *nftables.Table, chain *nftables.C
 	}
 }
 
-func (tp *TProxyService) getReservedIPv4() []nftables.SetElement {
+func (tp *tproxy) getReservedIPv4() []nftables.SetElement {
 	reservedNets := []string{
 		"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
 		"169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24",
@@ -471,7 +473,7 @@ func (tp *TProxyService) getReservedIPv4() []nftables.SetElement {
 	return buildReservedSetElements(reservedNets, false)
 }
 
-func (tp *TProxyService) getReservedIPv6() []nftables.SetElement {
+func (tp *tproxy) getReservedIPv6() []nftables.SetElement {
 	reservedNets := []string{
 		"::/128", "::1/128", "::ffff:0:0/96", "64:ff9b::/96",
 		"64:ff9b:1::/48", "100::/64", "2001::/32", "2001:20::/28",
@@ -560,7 +562,7 @@ func incrementIP(ip []byte) {
 	}
 }
 
-func (tp *TProxyService) deleteRules() error {
+func (tp *tproxy) deleteRules() error {
 	nft, err := nftables.New()
 	if err != nil {
 		return nil

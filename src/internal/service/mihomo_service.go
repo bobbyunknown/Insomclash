@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"fusiontunx/internal/firewall"
 	"fusiontunx/pkg/config"
 	"fusiontunx/pkg/logger"
 
@@ -28,16 +29,16 @@ type MihomoServiceInterface interface {
 }
 
 type MihomoService struct {
-	appConfig       *config.Config
-	configPath      string
-	nftablesService *NftablesService
+	appConfig  *config.Config
+	configPath string
+	firewall   firewall.Firewall
 }
 
-func NewMihomoService(appConfig *config.Config, configPath string, nftablesService *NftablesService) *MihomoService {
+func NewMihomoService(appConfig *config.Config, configPath string, fw firewall.Firewall) *MihomoService {
 	return &MihomoService{
-		appConfig:       appConfig,
-		configPath:      configPath,
-		nftablesService: nftablesService,
+		appConfig:  appConfig,
+		configPath: configPath,
+		firewall:   fw,
 	}
 }
 
@@ -141,6 +142,13 @@ func (s *MihomoService) Start() error {
 		"-d", s.appConfig.Mihomo.WorkingDir,
 		"-f", s.appConfig.Mihomo.ConfigPath)
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: 0,
+			Gid: 3005,
+		},
+	}
+
 	if s.appConfig.Mihomo.LogFile != "" {
 		logFile, err := os.OpenFile(s.appConfig.Mihomo.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
@@ -176,7 +184,7 @@ func (s *MihomoService) Start() error {
 		}
 
 		logger.Debug("Setting up routing")
-		err = s.nftablesService.SetupRouting(s.appConfig.Mihomo.Routing)
+		err = s.firewall.Setup(s.appConfig.Mihomo.Routing)
 		if err != nil {
 			cmd.Process.Kill()
 			os.Remove(pidFile)
@@ -250,7 +258,9 @@ func (s *MihomoService) Stop(saveState bool) error {
 	shouldCleanupRouting, err := s.shouldSetupRouting()
 	if err == nil && shouldCleanupRouting {
 		logger.Debug("Cleaning up routing")
-		s.nftablesService.CleanupTUNRouting()
+		if cleanupErr := s.firewall.Cleanup(); cleanupErr != nil {
+			logger.Warnf("Failed to cleanup routing: %v", cleanupErr)
+		}
 	}
 
 	if saveState {
@@ -394,6 +404,10 @@ func (s *MihomoService) adjustMihomoConfig() error {
 		configStr = ensureTUNDisabled(configStr)
 	}
 
+	if !s.firewall.UsesNftables() {
+		configStr = ensureRoutingMarkDisabled(configStr)
+	}
+
 	err = os.WriteFile(s.appConfig.Mihomo.ConfigPath, []byte(configStr), 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write mihomo config: %w", err)
@@ -507,6 +521,20 @@ func ensureTUNDisabled(config string) string {
 	}
 
 	return joinLines(lines)
+}
+
+func ensureRoutingMarkDisabled(config string) string {
+	lines := splitLines(config)
+	var newLines []string
+	for _, line := range lines {
+		trimmed := trimSpace(line)
+		if startsWith(trimmed, "routing-mark:") {
+			newLines = append(newLines, "routing-mark: 0")
+			continue
+		}
+		newLines = append(newLines, line)
+	}
+	return joinLines(newLines)
 }
 
 func splitLines(s string) []string {

@@ -64,14 +64,18 @@ func main() {
 	app.RedirectTrailingSlash = false
 	app.RedirectFixedPath = false
 
-	nftablesService := service.NewNftablesService()
-	mihomoService := service.NewMihomoService(cfg, configPath, nftablesService)
+	fw, err := newFirewall()
+	if err != nil {
+		log.Printf("Failed to initialize firewall: %v", err)
+		os.Exit(1)
+	}
+	mihomoService := service.NewMihomoService(cfg, configPath, fw)
 
 	if err := mihomoService.RestoreState(); err != nil {
 		log.Printf("Failed to restore mihomo state: %v", err)
 	}
 
-	router.Setup(app, mihomoService, nftablesService, cfg, configPath)
+	router.Setup(app, mihomoService, cfg, configPath)
 
 	if cfg.API.EnableSwagger {
 		app.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

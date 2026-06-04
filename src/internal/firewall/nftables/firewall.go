@@ -1,4 +1,6 @@
-package service
+//go:build linux && !android
+
+package nftables
 
 import (
 	"fmt"
@@ -9,41 +11,28 @@ import (
 	"github.com/sagernet/nftables"
 )
 
-type NftablesService struct {
-	conn            *nftables.Conn
-	tunService      *TUNService
-	tproxyService   *TProxyService
-	redirectService *RedirectService
+type Nftables struct {
+	tun      *tun
+	tproxy   *tproxy
+	redirect *redirect
 }
 
-func NewNftablesService() *NftablesService {
-	return &NftablesService{
-		tunService:      NewTUNService(),
-		tproxyService:   NewTProxyService(),
-		redirectService: NewRedirectService(),
+func New() *Nftables {
+	return &Nftables{
+		tun:      newTun(),
+		tproxy:   newTproxy(),
+		redirect: newRedirect(),
 	}
 }
 
-func (n *NftablesService) withConn(fn func() error) error {
-	conn, err := nftables.New()
-	if err != nil {
-		return fmt.Errorf("failed to create nftables connection: %w", err)
-	}
-	n.conn = conn
-	defer func() {
-		n.conn = nil
-	}()
-	return fn()
-}
-
-func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error {
-	logger.Debug("Starting SetupRouting")
+func (n *Nftables) Setup(routingConfig config.RoutingConfig) error {
+	logger.Debug("Starting nftables firewall Setup")
 	logger.Debugf("Routing config - TCP: %s, UDP: %s", routingConfig.TCP, routingConfig.UDP)
 
 	logger.Debug("Step 1: Cleanup existing rules")
-	n.tunService.Cleanup(nil)
-	n.tproxyService.Cleanup(nil)
-	n.redirectService.Cleanup(nil)
+	n.tun.Cleanup(nil)
+	n.tproxy.Cleanup(nil)
+	n.redirect.Cleanup(nil)
 
 	if routingConfig.TCP == config.RoutingModeTProxy || routingConfig.UDP == config.RoutingModeTProxy {
 		logger.Debug("Step 2: Setting up TPROXY")
@@ -56,7 +45,7 @@ func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error
 		tcpMode := string(routingConfig.TCP)
 		udpMode := string(routingConfig.UDP)
 
-		if err := n.tproxyService.Setup(conn, tcpMode, udpMode); err != nil {
+		if err := n.tproxy.Setup(conn, tcpMode, udpMode); err != nil {
 			logger.Errorf("TPROXY setup failed: %v", err)
 			return fmt.Errorf("failed to setup TPROXY: %w", err)
 		}
@@ -68,7 +57,7 @@ func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error
 		}
 
 		logger.Debug("Step 4: Setting up policy routing")
-		n.tproxyService.addPolicyRouting()
+		n.tproxy.addPolicyRouting()
 
 		logger.Info("TPROXY routing setup completed")
 	}
@@ -81,7 +70,7 @@ func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error
 			return fmt.Errorf("failed to create nftables connection: %w", err)
 		}
 
-		if err := n.tunService.Setup(conn, routingConfig); err != nil {
+		if err := n.tun.Setup(conn, routingConfig); err != nil {
 			logger.Errorf("TUN setup failed: %v", err)
 			return fmt.Errorf("failed to setup TUN: %w", err)
 		}
@@ -102,7 +91,7 @@ func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error
 			return fmt.Errorf("failed to create nftables connection: %w", err)
 		}
 
-		if err := n.redirectService.Setup(conn); err != nil {
+		if err := n.redirect.Setup(conn); err != nil {
 			logger.Errorf("REDIRECT setup failed: %v", err)
 			return fmt.Errorf("failed to setup REDIRECT: %w", err)
 		}
@@ -115,23 +104,27 @@ func (n *NftablesService) SetupRouting(routingConfig config.RoutingConfig) error
 		logger.Info("REDIRECT routing setup completed")
 	}
 
-	logger.Debug("SetupRouting completed successfully")
+	logger.Debug("nftables firewall Setup completed successfully")
 	return nil
 }
 
-func (n *NftablesService) CleanupTUNRouting() error {
-	return n.CleanupAllRouting()
+func (n *Nftables) Cleanup() error {
+	conn, err := nftables.New()
+	if err != nil {
+		return fmt.Errorf("failed to create nftables connection: %w", err)
+	}
+
+	n.tun.Cleanup(conn)
+	n.tproxy.Cleanup(conn)
+	n.redirect.Cleanup(conn)
+
+	return conn.Flush()
 }
 
-func (n *NftablesService) CleanupAllRouting() error {
-	return n.withConn(func() error {
-		n.tunService.Cleanup(n.conn)
-		n.tproxyService.Cleanup(n.conn)
-		n.redirectService.Cleanup(n.conn)
-		return n.conn.Flush()
-	})
+func (n *Nftables) IsTUNActive() bool {
+	return n.tun.IsActive()
 }
 
-func (n *NftablesService) IsTUNRoutingActive() bool {
-	return n.tunService.IsActive()
+func (n *Nftables) UsesNftables() bool {
+	return true
 }

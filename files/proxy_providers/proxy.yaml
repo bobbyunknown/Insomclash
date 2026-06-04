@@ -1,1 +1,16 @@
 proxies:
+  - name: "Indog"
+    type: vless
+    server: support.zoom.us
+    port: 443
+    uuid: cf6b5ce5-5c08-4ca2-9fbb-deaf28d0581e
+    tls: true
+    skip-cert-verify: true
+    servername: support.zoom.us.ctn.dreamserver.host
+    udp: true
+    client-fingerprint: chrome
+    network: ws
+    ws-opts:
+      path: /vless
+      headers:
+        Host: support.zoom.us.ctn.dreamserver.host
