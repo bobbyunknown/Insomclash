@@ -9,17 +9,18 @@ build_server() {
         echo "Usage: build.sh [server|magisk|all]"
         exit 1
     fi
+    shift
 
     case "$target" in
         server)
             build_server_all
             ;;
         magisk)
-            build_magisk
+            build_magisk "$@"
             ;;
         all)
             build_server_all
-            build_magisk
+            build_magisk "$@"
             ;;
         *)
             echo "Unknown target: $target"
@@ -318,4 +319,8 @@ fetch_geoip() {
 }
 
 target="${1:-all}"
-build_server "$target"
+if [ $# -gt 0 ]; then
+    build_server "$@"
+else
+    build_server "all"
+fi

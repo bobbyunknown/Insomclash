@@ -11,9 +11,11 @@ import (
 )
 
 type tproxy struct {
-	ipt *goiptables.IPTables
-	ip  string
-	cfg Config
+	ipt     *goiptables.IPTables
+	ip      string
+	cfg     Config
+	tcpMode string
+	udpMode string
 }
 
 func newTproxy(ipt *goiptables.IPTables, ip string, cfg Config) *tproxy {
@@ -21,6 +23,8 @@ func newTproxy(ipt *goiptables.IPTables, ip string, cfg Config) *tproxy {
 }
 
 func (tp *tproxy) setup(tcpMode, udpMode string) error {
+	tp.tcpMode = tcpMode
+	tp.udpMode = udpMode
 	if err := tp.createExternalChain(); err != nil {
 		return fmt.Errorf("create CLASH_EXTERNAL: %w", err)
 	}
@@ -79,31 +83,39 @@ func (tp *tproxy) createExternalChain() error {
 	markMask := markMaskHex(tp.cfg.TProxyMark, tp.cfg.TProxyMask)
 	port := fmt.Sprintf("%d", tp.cfg.TProxyPort)
 
-	if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
-		"-p", "tcp", "-i", "lo", "-j", "TPROXY",
-		"--on-port", port, "--tproxy-mark", markMask,
-	); err != nil {
-		return err
-	}
-	if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
-		"-p", "udp", "-i", "lo", "-j", "TPROXY",
-		"--on-port", port, "--tproxy-mark", markMask,
-	); err != nil {
-		return err
-	}
-
-	for _, iface := range []string{"wlan+", "rndis+"} {
+	if tp.tcpMode == "tproxy" {
 		if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
-			"-p", "tcp", "-i", iface, "-j", "TPROXY",
+			"-p", "tcp", "-i", "lo", "-j", "TPROXY",
 			"--on-port", port, "--tproxy-mark", markMask,
 		); err != nil {
 			return err
 		}
+	}
+	if tp.udpMode == "tproxy" {
 		if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
-			"-p", "udp", "-i", iface, "-j", "TPROXY",
+			"-p", "udp", "-i", "lo", "-j", "TPROXY",
 			"--on-port", port, "--tproxy-mark", markMask,
 		); err != nil {
 			return err
+		}
+	}
+
+	for _, iface := range []string{"wlan+", "swlan+", "ap+", "rndis+", "usb+", "eth+", "bt-pan"} {
+		if tp.tcpMode == "tproxy" {
+			if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
+				"-p", "tcp", "-i", iface, "-j", "TPROXY",
+				"--on-port", port, "--tproxy-mark", markMask,
+			); err != nil {
+				return err
+			}
+		}
+		if tp.udpMode == "tproxy" {
+			if err := tp.ipt.AppendUnique("mangle", "CLASH_EXTERNAL",
+				"-p", "udp", "-i", iface, "-j", "TPROXY",
+				"--on-port", port, "--tproxy-mark", markMask,
+			); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -145,15 +157,19 @@ func (tp *tproxy) createLocalChain() error {
 	}
 
 	mark := markHex(tp.cfg.TProxyMark)
-	if err := tp.ipt.AppendUnique("mangle", "CLASH_LOCAL",
-		"-p", "tcp", "-j", "MARK", "--set-mark", mark,
-	); err != nil {
-		return err
+	if tp.tcpMode == "tproxy" {
+		if err := tp.ipt.AppendUnique("mangle", "CLASH_LOCAL",
+			"-p", "tcp", "-j", "MARK", "--set-mark", mark,
+		); err != nil {
+			return err
+		}
 	}
-	if err := tp.ipt.AppendUnique("mangle", "CLASH_LOCAL",
-		"-p", "udp", "-j", "MARK", "--set-mark", mark,
-	); err != nil {
-		return err
+	if tp.udpMode == "tproxy" {
+		if err := tp.ipt.AppendUnique("mangle", "CLASH_LOCAL",
+			"-p", "udp", "-j", "MARK", "--set-mark", mark,
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -213,10 +229,12 @@ func (tp *tproxy) createNatDNS() error {
 }
 
 func (tp *tproxy) hookChains() error {
-	if err := tp.ipt.InsertUnique("mangle", "PREROUTING", 1,
-		"-p", "tcp", "-m", "socket", "-j", "DIVERT",
-	); err != nil {
-		return err
+	if tp.tcpMode == "tproxy" {
+		if err := tp.ipt.InsertUnique("mangle", "PREROUTING", 1,
+			"-p", "tcp", "-m", "socket", "-j", "DIVERT",
+		); err != nil {
+			return err
+		}
 	}
 	if err := tp.ipt.AppendUnique("mangle", "PREROUTING", "-j", "CLASH_EXTERNAL"); err != nil {
 		return err
